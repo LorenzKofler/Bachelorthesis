@@ -1,0 +1,39 @@
+\chapter{Fazit und Ausblick}
+\label{cha:Zusammenfassung}
+Die zwei wichtigsten Bausteine für Container sind Namespaces und Control
+Groups. Die acht verschiedenen Namespaces werden verwendet, um globale
+Systemressourcen für die Verwendung mit Containern zu abstrahieren. Zum
+Beispiel mittels des PID Namespaces werden die Prozesse des Containers vom
+restlichen System isoliert. Durch den erst seit kurzem als sicher gesehenen
+User Namespace kann die Verwendung von privilegierten Containern vermieden
+werden. Unprivilegierte Container bieten besseren Schutz vor
+Privilegien-Eskalation. Control Groups werden verwendet, um den
+Ressourcenverbrauch, wie zum Beispiel CPU und Arbeitsspeicher eines Containers
+zu limitieren. Durch Namespaces und Control Groups wird der Anschein der
+Virtualisierung innerhalb eines Containers erweckt.
+
+Wenn der Linux-Kernel kompromittiert wird, können diese beiden Mechanismen
+einfach ausgehebelt werden. Deshalb ist es notwendig, zusätzliche
+Schutzmechanismen zu verwenden. Mit Seccomp-BPF können Systemcalls blockiert
+werden, um mögliche Auswirkungen von kompromittierten Prozessen zu reduzieren
+und die Angriffsoberfläche auf den Linux Kernel zu verringern.
+Capabilities teilen die Rechte des Superusers in kleine Einheiten. Durch das
+Entfernen von Capabilities können privilegierte Prozesse innerhalb von
+Containern weiter eingeschränkt werden, damit wird erreicht, dass diese weniger
+Schaden anrichten können. Linux Security Modules wie AppArmor oder SELinux
+werden als zusätzlicher Schutzmechanismus verwendet. Diese beiden Mechanismen
+erlauben dem*der Systemadministrator*in Sicherheitsrichtlinien zu erzwingen. Damit
+kann verhindert werden, dass Container Zugriff auf sensible Dateien haben.
+
+Verbesserungswürdig sind die vorhandenen Linux Security Modules.
+Unprivilegierten Containern ist es mit AppArmor und SELinux nicht möglich,
+selbstständig benutzerdefinierte Sicherheitsrichtlinien anzuwenden. AppArmor
+arbeitet an einer Lösung zu diesem Problem. Ebenso sind Landlock und der
+Security Namespace Vorschläge um genanntes Problem zu lösen. Landlock wird in
+naher Zukunft Teil des Linux Kernels sein. 
+
+Aus diesen Neuerungen ergibt sich ein weiterer Forschungsbedarf. Mittels einem
+Vergleich der neuen Sicherheitsmodule soll evaluiert werden, welche Lösung am
+besten für die Verwendung mit Containern geeignet ist. Ebenso eine
+Gegenüberstellung von alternativen, nicht Linux basierten, Mechanismen zur
+Isolation von Container ist von Relevanz.

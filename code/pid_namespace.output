@@ -1,0 +1,6 @@
+# id
+uid=0(root) gid=0(root) groups=0(root)
+# gcc pid_namespace.c -o pid_namespace
+# ./pid_namespace
+clone() = 1233830
+Child pid: 1

@@ -1,0 +1,67 @@
+%%% Magic Comments zum Setzen der korrekten Parameter in kompatiblen IDEs
+% !TeX encoding = utf8
+% !TeX program = pdflatex 
+% !TeX spellcheck = de_DE
+% !BIB program = biber
+\newenvironment{italicquotes}
+{\begin{quote}\itshape}
+{\end{quote}}
+\newcommand\myworries[1]{\textcolor{red}{#1}}
+\newcommand\todo[1]{\textcolor{red}{#1}}
+\documentclass[bachelor,german,smartquotes]{hgbthesis}
+
+\RequirePackage[utf8]{inputenc}		% bei der Verw. von lualatex oder xelatex entfernen!
+
+\graphicspath{{images/}}    % Verzeichnis mit Bildern und Grafiken
+\logofile{logo}							% Logo-Datei = images/logo.pdf (\logofile{}, wenn kein Logo gewünscht)
+\bibliography{references}  	% Biblatex-Literaturdatei (references.bib)
+
+%%%----------------------------------------------------------
+% Angaben für die Titelei (Titelseite, Erklärung etc.)
+%%%----------------------------------------------------------
+\title{Mechanismen für Containersicherheit unter Linux}
+\author{Lorenz Kofler}
+\programtype{Fachhochschul-Bachelorstudiengang}	
+\programname{Sichere Informationssysteme}
+\placeofstudy{Hagenberg}
+\dateofsubmission{2021}{05}{17}	
+\advisor{Dieter Vymazal, BSc MSc}
+
+\begin{document}
+
+%%%----------------------------------------------------------
+\frontmatter                    % Titelei (röm. Seitenzahlen)
+%%%----------------------------------------------------------
+
+\maketitle
+\tableofcontents
+
+\include{front/kurzfassung}		
+\include{front/abstract}			
+
+%%%----------------------------------------------------------
+\mainmatter          % Hauptteil (ab hier arab. Seitenzahlen)
+%%%----------------------------------------------------------
+
+\include{chapters/einleitung}
+\include{chapters/sicherheitsmechanismen}
+\include{chapters/zusammenfassung}
+%%%----------------------------------------------------------
+\appendix                                            % Anhang 
+%%%----------------------------------------------------------
+
+%\include{back/anhang_a}	% Technische Ergänzungen
+%\include{back/anhang_b}	% Inhalt der CD-ROM/DVD
+%\include{back/anhang_c}	% Chronologische Liste der Änderungen
+%\include{back/anhang_d}	% Quelltext dieses Dokuments
+
+%%%----------------------------------------------------------
+\MakeBibliography                        % Quellenverzeichnis
+%%%----------------------------------------------------------
+
+%%% Messbox zur Druckkontrolle ------------------------------
+%\include{back/messbox}
+
+%%%----------------------------------------------------------
+\end{document}
+%%%----------------------------------------------------------

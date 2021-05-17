@@ -1,0 +1,70 @@
+\chapter{Einleitung}
+\label{cha:Einleitung}
+
+\section{Ausgangssituation}
+Container sind eine leichtgewichtige Alternative zu hypervisorbasierter
+Virtualisierung und bieten in beinahe allen Anwendungsfällen gleiche oder
+bessere Performance \cite{ContainerPerformance}.
+Dadurch wird die Verwendung von Containern in den verschiedensten
+Einsatzgebieten immer beliebter \cite{ContainerAdoption}.
+
+Der Unterschied zu hypervisorbasierter Virtualisierung besteht darin, dass
+diese die nötige Hardware emulieren. Das Gast{-}, sowie das Host-Betriebssystem
+verwenden jeweils einen eigenen Kernel. Container im Gegensatz bieten eine
+isolierte Umgebung an, welche den Anschein einer Virtualisierung erweckt. Es
+werden bestimmte Prozesse und Ressourcen wie RAM\footnote{Random-Access
+Memory}, CPU\footnote{Central Processing Unit} et cetera vom Host und anderen
+Containern isoliert. Dabei teilen Container und Host sich den gleichen Kernel. 
+
+\section{Problemstellung}
+Bei der Verwendung von Containern entsteht aufgrund des geteilten Kernels ein
+Problem.  Damit Container sicher genützt werden können, müssen diese
+Mechanismen verwenden, um die Ressourcen des Containers vollständig vom
+Hostsystem zu isolieren.  Ebenso müssen jegliche unerlaubte Zugriffe auf das
+Hostsystem blockiert werden.
+
+Somit werden unterschiedliche Linux Kernel Features und Linux Security Modules
+verwendet, um den Container zu isolieren und das Hostsystem zu schützen.  Genau
+genommen sind Mechanismen vorhanden, welche die Isolation von allen
+nötigen Ressourcen des Containers ermöglichen und dadurch den Anschein einer 
+Virtualisierung innerhalb des Containers erwecken.
+Des Weiteren sind Mechanismen
+vorhanden, welche das Host-Betriebssystem vor Angriffen aus dem Container
+schützen, indem die Angriffsoberfläche auf den Kernel limitiert und der
+unberechtigte Zugriff auf Dateien außerhalb des Containers blockiert wird.  
+
+\section{Zielsetzung}
+Es wird der Stand der Technik der unter Linux vorhandenen Mechanismen zur
+Isolation von Containern aufgezeigt.  Ebenso werden die eventuell vorhandenen
+Probleme dieser Mechanismen geschildert. Des Weiteren wird ein Überblick über
+den Stand der Forschung gegeben und wie dieser die Probleme des Stands der
+Technik lösen kann.
+
+\section{Forschungsfragen}
+Was sind der Stand der Technik und der Stand der Forschung von Mechanismen, die
+unter Linux zur Verfügung stehen, um einen Container zu isolieren und das
+Hostsystem vor diesem zu schützen?
+
+\begin{itemize}
+  \item Welche Features bietet der Linux-Kernel zum Isolieren von Containern
+    und was sind deren Limits und Probleme?
+  \item Welche Linux Security Modules bietet der Linux-Kernel zum Isolieren von
+    Containern und was sind deren Limits und Probleme?
+  \item Was ist der Stand der Forschung von Mechanismen unter Linux zum
+    Isolieren von Containern?
+\end{itemize}
+
+\section{Methodik}
+Bei dieser Arbeit handelt es sich um eine Literaturstudie. Hierbei wird der
+Stand der Technik und der Stand der Forschung von Mechanismen, welche unter
+Linux verfügbar sind, aufgezeigt. Hauptsächlich werden dabei Linux Kernel
+Features und Linux Security Modules betrachtet. Im Laufe der Arbeit werden die
+Probleme dieser Mechanismen genannt. Es wird ein Überblick über den
+Stand der Forschung geschaffen und wie dieser die Probleme der Stand der
+Technik löst. Schlussendlich wird der Stand der Technik der Mechanismen
+und deren Probleme zusammengefasst.
+
+\section{Erwartete Ergebnisse}
+Das erwartete Ergebnis ist eine vollständige Sammlung von Mechanismen, welche
+dem Stand der Technik entsprechen, um Container unter Linux zu isolieren und
+deren Probleme aufzuzeigen. 

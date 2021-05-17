@@ -1,0 +1,1112 @@
+\hyphenation{AppArmor}
+\hyphenation{SELinux}
+\hyphenation{Linux-Security-Module}
+
+\chapter{Linux Kernel Features}
+\label{cha:LinuxKernelFeatures}
+Das folgende Kapitel beschäftigt sich mit den Features des
+Linux-Kernels\footnote{\url{https://www.kernel.org/linux.html} (letzter Zugriff
+28.02.2021)}, welche zur Isolation von Containern verwendet werden können. 
+
+\section{Namespaces}
+\label{lab:namespaces}
+
+\subsection{Erklärung}
+Die Manpage\footnote{\url{https://man7.org/linux/man-pages/man1/man.1.html}
+(letzter Zugriff 11.05.2021)} von Namespaces besagt Folgendes:
+
+\begin{english}
+\begin{italicquotes}
+A namespace  wraps a global system resource in an abstraction that makes it
+appear to the processes within the namespace that they have their  own
+isolated  instance  of the global resource. \cite{man_namespaces}
+\end{italicquotes}
+\end{english}
+
+Unter Linux sind acht verschiedene Namespace-Typen verfügbar, wovon jeder Typ
+unterschiedliche Systemressourcen abstrahiert. Jeder Prozess ist jeweils einem
+Namespace von jedem Typen zugeordnet. Prozessen ist es nur möglich, Ressourcen
+zu sehen bzw. zu verwenden, welche sich im gleichen Namespace befinden.
+Mithilfe des
+\mbox{proc-Dateisystems\footnote{\url{https://man7.org/linux/man-pages/man5/procfs.5.html}
+(letzter Zugriff 05.02.2021)}} werden Informationen über vorhandene Namespaces
+mit dem Kernel ausgetauscht. Jeder Prozess besitzt unter dem
+Pfad \emph{/proc/PID/ns/}\footnote{PID muss jene des Prozesses
+sein} ein Verzeichnis. Dieses Verzeichnis enthält einen Eintrag für jeden Namespace-Typen, dem
+der Prozess zugehörig ist \cite{man_namespaces}. In folgendem Beispiel (siehe
+Programm \ref{lst:lsns}) werden die Namespaces, welchen der Prozess mit der PID
+1 (systemd\footnote{\url{https://man7.org/linux/man-pages/man1/systemd.1.html}
+(letzter Zugriff 05.02.2021)}) zugehörig ist, aufgelistet. 
+
+\newpage
+\begin{lstlisting}[label={lst:lsns},caption=Namespaces denen der Prozess mit der PID 1 zugehörig ist]
+# ls -l /proc/1/ns/
+total 0
+lrwxrwxrwx 1 root root 0 Jan 24 18:59 cgroup -> 'cgroup:[4026531835]'
+lrwxrwxrwx 1 root root 0 Jan 24 18:59 ipc -> 'ipc:[4026531839]'
+lrwxrwxrwx 1 root root 0 Jan 24 18:59 mnt -> 'mnt:[4026531840]'
+lrwxrwxrwx 1 root root 0 Jan 24 18:59 net -> 'net:[4026532008]'
+lrwxrwxrwx 1 root root 0 Jan 24 18:59 pid -> 'pid:[4026531836]'
+lrwxrwxrwx 1 root root 0 Jan 24 18:59 pid_for_children -> 'pid:[4026531836]'
+lrwxrwxrwx 1 root root 0 Jan 24 18:59 time -> 'time:[4026531834]'
+lrwxrwxrwx 1 root root 0 Jan 24 18:59 time_for_children -> 'time:[4026531834]'
+lrwxrwxrwx 1 root root 0 Jan 24 18:59 user -> 'user:[4026531837]'
+lrwxrwxrwx 1 root root 0 Jan 24 18:59 uts -> 'uts:[4026531838]'
+\end{lstlisting}
+In Programm \ref{lst:lsns} sind die acht verschiedenen Namespace-Typen zu
+erkennen. Um \linebreak Namespaces von einem Prozess aufzulisten, kann auch das
+Programm
+\emph{lsns}\footnote{\url{https://man7.org/linux/man-pages/man8/lsns.8.html}
+(letzter Zugriff 05.02.2021)} verwendet werden, welches die Informationen aus
+dem
+proc-Dateisystem\footnote{\url{https://man7.org/linux/man-pages/man5/procfs.5.html}
+(letzter Zugriff 25.03.2021)} liest \cite{man_lsns}.
+
+
+\subsection{Typen von Namespaces}
+Um die Funktionalität der acht Namespace-Typen zu demonstrieren, wird der
+Befehl
+\emph{unshare}\footnote{\url{https://www.man7.org/linux/man-pages/man1/unshare.1.html}
+(letzter Zugriff 05.02.2021)} verwendet. Dieser erstellt die per Argument
+angeführten Namespaces und führt das angegebene Programm innerhalb des neuen
+Namespaces aus \cite{man_unshare_1}. Das Programm \emph{unshare} ist Teil des
+Pakets
+\emph{util-linux}\footnote{\url{https://www.kernel.org/pub/linux/utils/util-linux/}
+(letzter Zugriff 03.02.2021)}.
+
+\subsubsection{Network Namespace}
+Network Namespaces (seit Kernel
+2.6.24\footnote{\url{https://kernelnewbies.org/Linux_2_6_24} (letzter Zugriff
+05.02.2021)}) ermöglichen die Isolation von Netzwerkressourcen
+\cite{man_network_namespaces}. Jeder Network Namespace ist eine Kopie des
+Netzwerk-Stacks mit eigenen Routen, Firewallregeln und Netzwerkschnittstellen
+\cite{man_ip_netns}.
+
+\begin{lstlisting}[label={console:network_namespace},caption={Beispiel für Network Namespace}]
+# ip route
+default via 192.168.0.1 dev wlp0s20f3 proto dhcp metric 600
+192.168.0.0/24 dev wlp0s20f3 proto kernel scope link src 192.168.0.131 metric 600
+# ip netns add newns
+# PS1="newns# " ip netns exec newns /bin/bash --norc
+newns# ip route
+Error: ipv4: FIB table does not exist.
+Dump terminated
+\end{lstlisting}
+
+Programm \ref{console:network_namespace} zeigt, dass die Routingtabelle
+innerhalb des neuen Network Namespaces (Zeile 6-8) nicht der Routingtabelle
+au{\ss}erhalb des neuen Network Namespaces (Zeile 1-3) entspricht. Erstellt
+wird der Network Namespace mit dem
+\mbox{\emph{ip-netns}}\footnote{\url{https://man7.org/linux/man-pages/man8/ip-netns.8.html}
+(letzter Zugriff 05.02.2021)} (Zeile 4) Befehl.
+
+Network Namespaces ermöglichen Containern, ihre eigenen Netzwerkressourcen zu
+verändern, ohne dabei die Netzwerkressourcen des restlichen Systems zu
+beeinflussen. Jeder Container besitzt eigene Netzwerkschnittstellen und einen
+eigenen Portnummernraum. Beispielsweise ist es somit möglich, mehrere
+Webapplikation in Containern zu betreiben, welche alle innerhalb ihres eigenen
+Namespaces auf Port 80 gebunden sind.
+
+\subsubsection{Mount Namespace}
+Mount Namespaces (seit Kernel 2.4.19) ermöglichen die Sicht auf die Liste der
+Mountpunkte, welche eine Gruppe an Prozessen sieht, zu isolieren
+\cite{man_mount_namespaces}. Es ist möglich, dass Prozesse in verschiedenen
+Mount Namespaces eine unterschiedliche Sicht auf das Dateisystem haben. In
+folgendem Beispiel wird dies demonstriert.
+
+\begin{lstlisting}[label={console:unshare_mount},caption={Beispiel für Mount Namespace}]
+# which cp
+/usr/bin/cp
+# PS1="newns# " unshare --mount /bin/bash --norc
+newns# mount --bind /usr/bin/ /mnt/
+newns# ls /mnt/cp
+/mnt/cp
+newns# exit
+# ls /mnt/cp
+"/mnt/cp": No such file or directory (os error 2)
+
+\end{lstlisting}
+In Programm \ref{console:unshare_mount} wird eine neue Shell in einem neuen
+Mount Namespace gestartet (Zeile 3). Innerhalb des neuen Mount Namespaces wird
+das Verzeichnis \emph{/usr/bin} nach \emph{/mnt} eingehängt (Zeile 4). Es ist
+zu erkennen, dass innerhalb des Namespaces das eingehängte Verzeichnis in der
+Dateisystem-Hierarchie sichtbar ist (Zeile 5-6). Au{\ss}erhalb des Namespaces
+sind keine Auswirkungen auf die Dateisystem-Hierarchie (Zeile 8-9) zu erkennen.
+Dieser Mechanismus ermöglicht, dass Container eine andere Sicht auf das
+Dateisystem haben.
+
+\subsubsection{PID Namespace}
+PID Namespaces (seit Kernel
+2.6.24\footnote{\url{https://kernelnewbies.org/Linux_2_6_24} (letzter Zugriff
+05.02.2021)}) ermöglichen die Isolation des  PID-Nummern\-raums, wobei neue
+Namespaces bei PID 1 zu zählen beginnen \cite{man_pid_namespaces}. Dieser
+Mechanismus wird von Containern zur Prozessisolation verwendet. Ein Prozess
+kann nur jene Prozesse sehen, welche sich im selben PID Namespace oder in einem
+Kind-Namespace davon befinden. So kann zum Beispiel verhindert werden, dass ein
+Prozess aus einem Container
+\emph{kill}\footnote{\url{https://man7.org/linux/man-pages/man2/kill.2.html} (letzter
+Zugriff 05.02.2021)} Signale zu Prozessen au{\ss}erhalb des Containers sendet.
+Ebenso können PIDs innerhalb des Containers immer dieselben bleiben, egal
+welche PIDs auf dem jeweiligen Hostsystem in Verwendung sind. Ein Beispiel
+dafür wird in Abschnitt \ref{Implementierung} gegeben.
+
+\subsubsection{Time Namespaces}
+Time Namespaces (seit Kernel
+5.6\footnote{\url{https://kernelnewbies.org/Linux_5.6\#Time_Namespaces}
+(letzter Zugriff 05.02.2021)}) ermöglichen je Namespace unterschiedliche Zeit
+Offsets für die Systemuhren CLOCK\_MONOTONIC und
+CLOCK\_BOOTTIME\footnote{\url{https://www.man7.org/linux/man-pages/man3/clock_gettime.3.html}
+(letzter Zugriff 05.02.2021)} zu bestimmen \cite{man_time_namespaces}. Für den
+jeweiligen Namespace wird die Uhrzeit des initialen Namespaces mit dem Offset
+addiert. Das folgende Beispiel zeigt, wie durch einen Offset die Systemuhr
+CLOCK\_BOOTIME innerhalb eines Namespaces verändert werden kann. 
+
+\begin{lstlisting}[label={console:time_namespace},caption={Beispiel für Time Namespace}]
+# uptime --pretty
+up 2 days, 18 hours, 5 minutes
+# cat /proc/self/timens_offsets
+monotonic           0         0
+boottime            0         0
+# PS1="newns# " sudo unshare --time /bin/bash --norc
+newns# echo "boottime  $((7*24*60*60)) 0" > /proc/self/timens_offsets
+newns# cat /proc/self/timens_offsets
+monotonic           0         0
+boottime       604800         0
+newns# uptime --pretty
+up 1 week, 2 days, 18 hours, 5 minutes
+newns# exit
+# uptime --pretty
+up 2 days, 18 hours, 5 minutes
+\end{lstlisting}
+
+In Programm  \ref{console:time_namespace} wird ein neuer Time Namespace
+erstellt (Zeile 6). Innerhalb des Time Namespaces wird ein Offset von sieben
+Tagen zur Systemuhr CLOCK\_BOOTIME  hinzugefügt (Zeile 7). Es zeigt, dass die
+Betriebszeit innerhalb des Namespaces (Zeile 11-12) verändert werden kann, ohne
+dabei die Zeit im initialen Namespace zu beeinflussen (Zeile 14-15). Mit diesem
+Mechanismus ist es möglich, die Zeit innerhalb eines Containers unabhängig vom
+Hostsystem zu ändern.
+
+\subsubsection{User Namespaces}
+\label{lab:user_namespaces}
+
+Mithilfe User Namespaces (seit Kernel
+3.8\footnote{\url{https://kernelnewbies.org/Linux_3.8} (letzter Zugriff
+05.02.2021)})  ist es möglich, sicherheitsrelevante Identifizierungsmerkmale
+und Attribute zu isolieren \cite{man_user_namespaces}. Unter anderem
+UID\footnote{User Identifier} und GID\footnote{Group Identifier}, was
+ermöglicht, dass UID und GID je nach User Namespaces unterschiedlich sein
+können. Ein Prozess kann eine unprivilegierte UID au{\ss}erhalb eines User
+Namespaces besitzen, während der Prozess innerhalb des User Namespaces die UID
+0 besitzt und somit volle Privilegien innerhalb des Namespaces hat.
+\clearpage
+\begin{lstlisting}[label={console:user_namespace},caption={Beispiel für User Namespace}]
+# cat /proc/$$/status | egrep '^[UG]id'
+Uid:    1000    1000    1000    1000
+Gid:    985     985     985     985
+
+# PS1="newns# " unshare --user --map-root-user /bin/bash --norc
+newns#  cat /proc/$$/status | egrep '^[UG]id'
+Uid:    0       0       0       0
+Gid:    0       0       0       0
+\end{lstlisting}
+
+In Programm \ref{console:user_namespace} ist zu erkennen, dass die UID und die GID
+au{\ss}erhalb des neuen Namespaces (Zeile 1-3) unterschiedlich zu der UID und der
+GID innerhalb des Namespaces (Zeile 6-8) sind. Erstellt wird der neue User
+Namespace in Zeile 5. Mit dem Argument \mbox{\emph{-{}-map-root-user}} wird
+angegeben, dass die aufrufende UID (1000, Zeile 2) zu der UID des \emph{root}
+Users (0, Zeile 7) umgesetzt wird \cite{man_unshare_1}.
+
+Container verwenden diesen Mechanismus, wenn ein Prozess mit 
+privilegierten Rechten ausgeführt werden muss, jedoch der Container selbst nur
+mit unprivilegierten Rechten \cite{dockerusernamespaces}. Somit kann ein
+Prozess innerhalb es Containers Superuser-Rechte besitzen, wobei diese Rechte
+auf den jeweiligen Namespace limitiert sind. Hierdurch ermöglichen User
+Namespaces das Konzept von unprivilegierten Containern.
+
+Ebenso ermöglichen User Namespaces Rootless Docker\cite{docker_rootless}. Damit
+ein Namespace erstellt werden kann, sind privilegierte Capabilities (siehe
+Abschnitt \ref{lab:capabilities}) nötig. Dies bedeutet beispielsweise der
+Docker-Dämon\footnote{\url{https://docs.docker.com/get-started/overview/\#the-docker-daemon}
+(letzter Zugriff 28.02.2021)} muss mit Superuser-Rechte ausgeführt werden, um
+Namespaces erstellen zu können. Damit das umgangen werden kann, wird zuerst ein
+User Namespace erstellt und der Docker-Dämon in diesem ausgeführt. Dadurch
+besitzt der Dämon privilegierte Rechte innerhalb seines User Namespaces und
+kann somit Namespaces für neue Container erstellen, ohne Superuser-Rechte 
+zu benötigen.
+Hierdurch wird möglicher Schaden von kompromittierten Docker-Containern weiter
+verringert.
+
+\subsubsection{UTS Namespaces}
+UTS\footnote{UNIX Time Sharing} Namespaces ermöglichen die Isolation des
+Hostnamens und des NIS\footnote{Network Information System} Namens.
+
+\begin{lstlisting}[label={console:uts_namespaces},caption={Beispiel für UTS Namespace}]
+# PS1="newns# " unshare --uts /bin/bash --norc
+newns# hostname linux2
+newns# hostname
+ linux2
+newns# exit
+# hostname
+linux
+\end{lstlisting}
+
+In Programm \ref{console:uts_namespaces}  ist zu erkennen, dass der Hostname
+au{\ss}erhalb des neuen UTS \linebreak Namespaces (Zeile 6-7) nicht durch die
+Veränderung des Hostnamens innerhalb des neuen Namespaces (Zeile 2-4)
+beeinflusst wird. Container verwenden den Mechanismus, um ihren Hostnamen
+unabhängig vom Hostsystem zu verändern \cite{dockerutsnamespaces}.
+
+\subsubsection{IPC Namespace}
+IPC\footnote{Inter-Process Communciation} ist die Kommunikation von Prozessen
+untereinander. Mittels des IPC Namespaces (seit Kernel
+2.6.19\footnote{\url{https://kernelnewbies.org/Linux_2_6_19} (letzter Zugriff
+20.02.2021)}) werden
+System-V-IPC-Mechanismen\footnote{\url{https://man7.org/linux/man-pages/man7/sysvipc.7.html}
+(letzter Zugriff 21.02.2021)} und
+POSIX-Nachrichten\-warteschlangen\footnote{\url{https://man7.org/linux/man-pages/man7/mq_overview.7.html}
+(letzter Zugriff 21.02.2021)} isoliert \cite{man_ipc_namespace}. 
+
+
+\begin{lstlisting}[label={console:ipc_namespaces},caption={Beispiel für IPC Namespace}]
+# ipcs --shmems
+------ Shared Memory Segments --------
+key        shmid      owner      perms      bytes      nattch     status      
+0x00000000 589838     lorenz     600        67108864   2          dest         
+0x00000000 196654     lorenz     600        524288     2          dest         
+0x00000000 196657     lorenz     600        524288     2          dest         
+0x00000000 196666     lorenz     600        1048576    2          dest         
+# PS1="newns# " unshare --ipc /bin/bash --norc
+newns# ipcs -m
+------ Shared Memory Segments --------
+key        shmid      owner      perms      bytes      nattch     status      
+\end{lstlisting}
+
+Mithilfe des Befehls
+\emph{ipcs}\footnote{\url{https://man7.org/linux/man-pages/man1/ipcs.1.html}
+(letzter Zugriff 18.04.2021)} ist es möglich, Informationen über System-V-IPC
+anzuzeigen \cite{man_ipcs}. In Programm \ref{console:ipc_namespaces} werden
+mittels des \emph{-{}-shmems} Arguments alle aktiven Shared Memory Segmente
+angezeigt (Zeile 1-7). Zu erkennen ist, dass diese innerhalb eines neuen IPC
+Namespaces nicht mehr vorhanden sind (Zeile 9-11). Der IPC Namespace stellt
+sicher, dass ein Container weder auf die IPC Ressourcen von anderen Containern,
+noch auf die des Hosts zugreifen kann.
+
+\subsubsection{Cgroup Namespace}
+Eine Erklärung zu Cgroups kann in Abschnitt \ref{lab:cgroups} gefunden werden.
+Mittels des Cgroup Namespaces wird verhindert, dass Informationen über die am
+Host vorhanden Cgroups an den Container gelangen \cite{lwn_cgroups}.
+
+\begin{lstlisting}[label={console:cgroup_namespaces},caption={Beispiel für Cgroup Namespace}]
+# cgcreate -g freezer:foo
+# echo $$ > /sys/fs/cgroup/freezer/foo/cgroup.procs
+# grep freezer /proc/self/cgroup
+7:freezer:/foo
+# PS1="newns# " unshare --cgroup /bin/bash --norc
+newns# grep freezer /proc/self/cgroup
+7:freezer:/
+newns# echo $$
+1093614
+# exit
+# grep freezer /proc/1093614/cgroup
+7:freezer:/foo
+\end{lstlisting}
+
+In Programm \ref{console:cgroup_namespaces} ist zu erkennen, dass die Sicht auf
+die Cgroups-Hierarchie innerhalb des neuen Namespaces (Zeile 6-7) nicht der
+Sicht au{\ss}erhalb des Namespaces entspricht (Zeile 11-12).
+
+\subsection{Implementierung}
+\label{Implementierung}
+
+Um mit Namespaces zu arbeiten, werden folgende Systemcalls
+benötigt \cite{man_namespaces}:
+
+\begin{itemize}
+  \item
+    \emph{clone()}\footnote{\url{https://man7.org/linux/man-pages/man2/clone.2.html}
+    (letzter Zugriff 05.02.2021)}: Erstellt einen neuen Prozess und die
+    angegeben Namespaces.
+  \item
+    \emph{setns()}\footnote{\url{https://man7.org/linux/man-pages/man2/setns.2.html}
+    (letzter Zugriff 05.02.2021)}: Der aufrufende Prozess wird zu einem
+    angegeben, bereits bestehenden, Namespace hinzugefügt.
+  \item
+    \emph{unshare()}\footnote{\url{https://man7.org/linux/man-pages/man2/unshare.2.html}
+    (letzter Zugriff 05.02.2021)}: Der aufrufende Prozess wird einem Namespace
+    hinzugefügt. Wenn dieser Namespace nicht vorhanden ist, wird ein neuer
+    erstellt.
+\end{itemize}
+
+Um welchen Namespace-Typen es sich handelt, wird mit einer eindeutigen Flag für
+jeden Namespace-Typen angegeben \cite{man_namespaces}. Folgendes
+C-Programm\footnote{\url{https://en.cppreference.com/w/} (letzter Zugriff
+20.02.2021)} demonstriert die Erstellung eines neuen PID Namespaces mittels des
+\emph{clone()} Systemcalls.
+
+\lstinputlisting[label={program:pid_namespace_c},caption={Implementierung eines
+PID Namespaces in C}]{code/pid_namespace.c}
+
+In Programm \ref{program:pid_namespace_c} wird mittels des Systemcalls
+\emph{clone()} ein Kindprozess
+erstellt (Zeile 18). Übergeben wird die Flag \emph{CLONE\_NEWPID} zum Erstellen eines PID
+Namespaces. Der Kindprozess führt die Funktion \emph{isolated()} in Zeile 10
+aus. In Zeile 11 wird die PID aus der Sicht des Kindprozesses auf
+\emph{stdout}\footnote{\url{https://man7.org/linux/man-pages/man3/stdout.3.html} (letzter
+Zugriff 06.02.2021)} geschrieben. In Zeile 22 wird die PID des Kindprozesses
+aus der Sicht des Elternprozesses auf \emph{stdout} geschrieben.
+
+
+\lstinputlisting[label={lst:Konsolenausgabe}, caption={Kompilieren  und
+Ausführen des Programms \ref{program:pid_namespace_c}}]{code/pid_namespace.output}
+
+In der Konsolenausgabe (Programm \ref{lst:Konsolenausgabe}) ist zu erkennen,
+dass der Kindprozess aus der Sicht des Elternprozesses die PID \emph{1233830}
+besitzt. Hingegen besitzt der Kindprozess aus dessen eigener Sicht die PID
+\emph{1}, was der Funktionalität des PID Namespaces entspricht.
+
+\subsection{Probleme}
+Die Entwicklung von Namespaces findet seit Linux 2.4.19 (2002) statt und begann
+mit der Einführung des Mount Namespaces. Ab 2006 begann die Implementierung der
+restlichen Namespaces \cite{GlobalLinuxNamespaces}. Namespaces wurden nicht von
+Grunde auf geplant, sondern im Laufe der Zeit zum Kernel hinzugefügt. Eric
+Biederman schrieb 2006 \cite{GlobalLinuxNamespaces}, dass zirka 6\% bis 15\%
+des Kernel-Sourcecodes
+verändert werden müssen, was zirka 130.000 Zeilen Code entspricht.
+Dadurch wurden die Änderungen aufgeteilt und
+jeder Namespace einzeln nacheinander implementiert. Diese Änderungen bewirkten,
+dass der Namespaces-Code für verschiedenste Sicherheitsschwachstellen
+verantwortlich war. Besonders nach der Einführung von User Namespaces (siehe
+Abschnitt {\ref{lab:user_namespaces}}) in Kernel
+3.8\footnote{\url{https://kernelnewbies.org/Linux_3.8} (letzter Zugriff
+05.02.2021)} wurden mehrere Schwachstellen gefunden
+\cite[26]{HardeningContainers}. Dies hatte schlussendlich zur Folge, dass eine
+Funktion eingebaut wurde, welche ermöglicht, User Namespaces zu deaktivieren
+\cite{patch_disable_user_namespaces}. Mittlerweile wird der Namespaces-Code
+jedoch als ausgereift betrachtet \cite{docker_engine_security_ausgereift}. Auch
+User Namespaces sind seit 2019 unter Docker verwendbar \cite{docker_rootless}.
+
+\subsection{Verwendung} 
+Namespaces sind ein essenzieller Mechanismus zur Isolation von Containern. Durch die
+Abstrahierung von Ressourcen in unterschiedliche Namespaces wird in Containern
+der Anschein der Virtualisierung erreicht. Mithilfe des User Namespaces werden
+unprivilegierte Container möglich gemacht. Somit wird das Risiko, dass ein
+Container Schaden am Hostsystem anrichten kann, zusätzlich verringert. 
+
+Namespaces werden unter anderem von den Container-Management-Programmen
+LXC\footnote{\url{https://linuxcontainers.org/} (letzter Zugriff 05.02.2021)}
+und Docker\footnote{\url{https://www.docker.com/} (letzter Zugriff 05.02.2021)}
+verwendet, um Systemressourcen zu isolieren. Wie aus der Docker Dokumentation
+\cite{docker_engine_security_ausgereift} zu entnehmen ist, sind Namespaces die
+erstrangige und einfachste Form der Isolation. Auch der Browser
+Chromium\footnote{\url{https://www.chromium.org/} (letzter Zugriff 05.02.2021)}
+verwendet Namespaces, um seine Prozesse vor Angriffen aus dem Internet besser
+zu schützen \cite{chrome_linux_sandboxing}.
+
+\section{Control Groups}
+\label{lab:cgroups}
+
+\subsection{Erklärung}
+Control Groups – kurz Cgroups – erlauben es, den Ressourcenverbrauch für eine
+Gruppe von Prozessen zu überwachen und zu limitieren \cite{man_cgroups}.
+Ressourcen, für welche dies möglich ist, sind unter anderem Prozessorzeit,
+Speicherverbrauch und Netzwerkbandbreite. Cgroups sind verfügbar seit
+Linux-Kernel
+2.4.26\footnote{\url{https://kernelnewbies.org/Linux\_2\_6\_24\#Task\_Control\_Groups}
+(letzter Zugriff 22.02.2021)}.
+
+\subsection{Implementierung}
+Eine Cgroup ist eine Gruppe von Prozessen, welche an bestimmte Limits und
+Parameter gebunden ist \cite{man_cgroups}. Ein Subsystem ist eine
+Kernel-Komponente, welche das Verhalten der Prozesse einer Cgroup verändert.
+Verschiedenste Subsysteme machen es möglich, unterschiedlichste Ressourcen zu
+überwachen und zu limitieren. Neu erstellte Prozesse übernehmen automatisch die
+Cgroups der Elternprozesse. Die Kommunikation mit dem Kernel findet über das
+Pseudo-Dateisystem cgroupfs statt: \emph{/sys/fs/cgroup/}. Der Linux-Kernel
+5.11 unterstützt 13 verschiedene Subsysteme \cite{man_cgroups}. Folgende
+Subsysteme sind beispielsweise vorhanden. 
+
+\begin{itemize}
+  \item \emph{cpu}: Limitieren von CPU Ressourcen
+  \item \emph{memory}: Limitieren des Speicherverbrauchs
+  \item \emph{pids}: Limitieren der Anzahl an Prozessen 
+  \item \emph{freezer}: Aussetzen und Fortsetzen von Prozessen
+\end{itemize}
+
+Programm \ref{console:cgroup_example} demonstriert die Anwendung von Cgroups.
+Verwendet werden dafür die Tools
+\emph{cgcreate}\footnote{\url{https://linux.die.net/man/1/cgcreate} (letzter
+Zugriff 26.02.2021)} und
+\emph{cgexec}\footnote{\url{https://linux.die.net/man/1/cgexec} (letzter
+Zugriff 26.02.2021)} aus dem Paket
+\emph{libcgroup}\footnote{\url{https://github.com/matsumotory/libcgroup}
+(letzter Zugriff 26.02.2021)}.
+
+
+\begin{lstlisting}[label={console:cgroup_example},caption={Beispiel für Control
+Groups}]
+# cgcreate -g memory:foo
+# cgexec -g memory:foo ping 8.8.8.8 > /dev/null &
+[1] 1008678
+# cat /sys/fs/cgroup/memory/foo/cgroup.procs
+1008678
+# cat /sys/fs/cgroup/memory/foo/memory.usage_in_bytes
+438272
+# kill 1008678
+# echo 50000 > /sys/fs/cgroup/memory/foo/memory.limit_in_bytes
+# cgexec -g memory:foo ping 8.8.8.8
+Killed
+\end{lstlisting}
+
+In Programm \ref{console:cgroup_example} wird mittels des Befehls
+\emph{cgcreate} eine Cgroup mit dem Namen \emph{foo} im \emph{memory} Subsystem
+erstellt (Zeile 1). Mithilfe \emph{cgexec} wird der Befehl \emph{ping
+8.8.8.8}\footnote{\url{https://man7.org/linux/man-pages/man8/ping.8.html}
+(letzter Zugriff 26.02.2021)} ausgeführt und der Cgroup hinzugefügt (Zeile
+2-3). Die Datei \emph{cgroup.procs} enthält die PIDs, welche der Cgroup
+zugehörig sind (Zeile 4-5). Wenn das Speicherlimit der Cgroup niedriger gesetzt
+wird (Zeile 9) als der benötigte Speicher (Zeile 6-7), ist es nicht mehr
+möglich, \emph{ping 8.8.8.8} auszuführen (Zeile 10-11). Dies ist ein Beispiel
+dafür, wie Cgroups verwendet werden können, um den Speicherverbrauch von
+Prozessen zu überwachen (Zeile 6-7) und zu limitieren (Zeile 9-11).
+
+\subsection{Probleme}
+Xing Gao et al. \cite{10.1145/3319535.3354227} haben Möglichkeiten gefunden,
+trotz Ressourcenlimitierung mit Cgroups, Out-of-Band Arbeitslast zu erstellen.
+Hierbei werden mithilfe unterschiedlicher Strategien Prozesse gestartet, welche
+nicht der entsprechenden Cgroup zugehörig sind und somit auch nicht dessen
+Limitierungen besitzen. In einem Experiment gelang es ihnen, dass ein Container
+200 Mal mehr als sein Limit verbrauchte.
+
+\subsection{Verwendung}
+Cgroups sind, neben Namespaces, ein weiterer essenzieller Mechanismus zur
+Isolation der Ressourcen eines Containers. Mit Cgroups wird der
+Ressourcenverbrauch von Containern kontrolliert und somit verhindert, dass
+diese mehr Ressourcen verwenden als erlaubt. Durch die richtige Verwendung von
+Cgroups können mehrere bekannte \mbox{Denial-of-Service-Angriffe} abgewehrt
+werden \cite{10.1145/3274694.3274720}. Cgroups werden von Docker verwendet, um
+verschiedenste Laufzeitmetriken zu überwachen \cite{dockercgroups}. Ebenso kann
+Docker damit  Ressourcen, wie Speicher- und CPU-Verbrauch limitieren
+\cite{docker_resource_contraints}.
+
+\section{Seccomp-BPF}
+\label{lab:seccompbpf}
+
+\subsection{Erklärung}
+\label{lab:seccomp_explained}
+Der Linux-Kernel 5.11 bietet zirka 450 Systemcalls an \cite{kernelsystemcalls}.
+Jeder dieser kann als Angriffsvektor genutzt werden. Die Mehrheit der Programme
+benötigt jedoch nur einen kleinen Teil der verfügbaren Systemcalls. Durch ein
+Limitieren der verwendbaren Systemcalls werden mögliche Auswirkungen von
+kompromittierten Prozessen
+reduziert. Ebenso wird die Angriffsoberfläche auf den Linux-Kernel verringert
+\cite{kernel_seccomp}. 
+
+Der Seccomp\footnote{Secure Computing} Modus ist seit Kernel
+2.6.12\footnote{\url{https://kernelnewbies.org/Linux_2_6_12} (letzter Zugriff
+22.02.2021)} verfügbar. Dieser verbietet einem Prozess die Verwendung jeglicher
+Systemcalls au{\ss}er
+\emph{read()}\footnote{\url{https://man7.org/linux/man-pages/man2/read.2.html}
+(letzter Zugriff 27.02.2021)},
+\emph{write()}\footnote{\url{https://man7.org/linux/man-pages/man2/write.2.html}
+(letzter Zugriff 27.02.2021)},
+\emph{\_exit()}\footnote{\url{https://man7.org/linux/man-pages/man2/exit.2.html}
+(letzter Zugriff 27.02.2021)} und
+\emph{sigreturn()}\footnote{\url{https://man7.org/linux/man-pages/man2/sigreturn.2.html}
+(letzter Zugriff 27.02.2021)} \cite{man_seccomp}. Der Secure Computing-Modus
+wurde ursprünglich dafür entwickelt, CPU-Zyklen über ein Linux basiertes,
+weltweites Netzwerk zu vermieten \cite{lwn_cpushare}. Um zu garantieren, dass
+der ausgeführte Code keinen Schaden am System anrichten kann, wurde der Seccomp
+Modus verwendet. 
+
+Seccomp bietet jedoch nicht die Möglichkeit, beliebige Systemcalls zu erlauben
+bzw. zu verbieten. Aus diesem Grund wurde mit Kernel
+3.5\footnote{\url{https://kernelnewbies.org/Linux\_3.5} (letzter Zugriff
+22.02.2021)} diese Funktionalität mit
+\linebreak\mbox{Seccomp-BPF\footnote{Berkey Packet Filter}} (Secure Computing with filters) erweitert.
+Der Systemcall-Filter wird als Berkley Paket Filter
+Programm\footnote{\url{https://www.freebsd.org/cgi/man.cgi?query=bpf} (letzter
+Zugriff 27.02.2021)} angegeben \cite{kernel_seccomp}. Wenn beispielsweise eine
+Anwendung den \emph{open()} Systemcall nicht benötigt, kann dieser blockiert
+werden. Dadurch wird der Schaden, welche eine kompromittierte Anwendung
+anrichten kann, und die Angriffsfläche auf den Kernel reduziert.
+
+
+\begin{samepage}
+\subsection{Implementierung}
+Folgendes ist eine Implementierung zur Demonstration des Secure Computing-Moduses in C. 
+
+
+\lstinputlisting[label={program:seccomp_example},caption={Implementierung des
+Secure Computing-Moduses in C}]{code/seccomp_example.c}
+\end{samepage}
+
+In Programm \ref{program:seccomp_example} wird der Prozess mit dem Systemcalls
+\emph{prctl}\footnote{\url{https://man7.org/linux/man-pages/man2/prctl.2.html}
+(letzter Zugriff 27.02.2021)} und der Flag \linebreak
+\mbox{\emph{PR\_SET\_SECCOMP}}  in den Secure Computing-Modus gebracht (Zeile
+8). Durch die Flag \emph{SECCOMP\_MODE\_STRICT} entsteht das unter Abschnitt
+\ref{lab:seccomp_explained} erklärte Verhalten. Die Mehrheit der Systemcalls
+wird somit deaktiviert. Wird nun ein verbotener Systemcall verwendet, hier
+\emph{fork()}\footnote{\url{https://man7.org/linux/man-pages/man2/fork.2.html}
+(letzter Zugriff 27.02.2021)} (Zeile 10), wird das Programm beendet.
+
+\begin{lstlisting}[label={console:seccomp_example_output},caption={Kompilieren
+und Ausführen des Programms \ref{program:seccomp_example}}]
+# gcc seccomp_example.c -o seccomp_example
+./seccomp_example
+1. Uneingeschränkt
+2. SECCOMP_MODE_STRICT aktiv
+[1]    1797387 killed     ./seccomp_example
+\end{lstlisting}
+Wie in Programm \ref{console:seccomp_example_output} zu erkennen, spiegelt dies
+das gewünschte Verhalten wider. Es wird ein verbotener Systemcall verwendet,
+somit wird das Programm beendet (Zeile 5).
+
+Folgendes Programm ist eine Implementierung in C zur Demonstration von
+Seccomp-BPF. Damit das Verwenden von BPF vereinfacht wird, werden von Chromium
+OS\footnote{\url{https://www.chromium.org/chromium-os} (letzter Zugriff
+16.05.2021)} Autoren entwickelte BPF Makros verwendet. Die C-Header-Datei ist
+im
+Github-Repo\footnote{\url{https://github.com/ahupowerdns/secfilter/blob/master/seccomp-bpf.h}
+(letzter Zugriff 28.02.2021)} des Benutzers \emph{ahupowerdn} zu finden.
+\clearpage
+
+\lstinputlisting[label={program:seccomp_bpf_example},caption={Implementierung
+von Seccomp-BPF in C}]{code/seccomp_bpf_example.c}
+
+Zu Beginn ist das Programm \ref{program:seccomp_bpf_example} uneingeschränkt (Zeile 29). Die nötigen
+Instruktionen für den Berkley Packet Filter führt die Funktion
+\mbox{\emph{install\_filter()}} (Zeile 5) aus. Mit den Makros von
+\emph{seccomp-bpf.h} werden nur die Systemcalls
+\emph{exit\_group()}\footnote{\url{https://man7.org/linux/man-pages/man2/exit_group.2.html}
+(letzter Zugriff 28.02.2021)} und \emph{write()} erlaubt (Zeile 9-10). Der
+Systemcall \emph{exit\_group} wird für die \emph{return}-Anweisung benötigt
+\cite[S.532]{TheLinuxProgrammingInterface}. Der Systemcall \emph{write()} wird
+für die Funktion
+\emph{printf}\footnote{\url{https://man7.org/linux/man-pages/man3/printf.3.html}
+(letzter Zugriff 28.02.2021)} benötigt
+\cite[S.30]{TheLinuxProgrammingInterface}. Jedoch wird der für die Funktion
+\mbox{\emph{fopen()}}\footnote{\url{https://man7.org/linux/man-pages/man3/fopen.3.html}
+(letzter Zugriff 27.02.2021)} (Zeile 33) benötigte Systemcall
+\emph{openat()}\footnote{\url{https://man7.org/linux/man-pages/man2/openat.2.html}
+(letzter Zugriff 27.02.2021)} nicht erlaubt. Durch \emph{prctl()} und der Flag
+\emph{SECCOMP\_MODE\_FILTER} wird der angegebene Berkley Packet Filter
+\emph{prog} aktiv (Zeile 21).
+
+
+\clearpage
+\begin{lstlisting}[label={console:seccomp_bpf_example},caption={Kompilieren und
+Ausführen des Programms \ref{program:seccomp_bpf_example}}]
+# gcc seccomp_bpf_example.c -o seccomp_bpf_example
+./seccomp_bpf_example
+1. Uneingeschraenkt
+2. write() Systecall ist erlaubt
+[1]    394602 invalid system call (core dumped)  ./seccomp_bpf_example
+\end{lstlisting}
+
+Programm \ref{console:seccomp_bpf_example} zeigt, dass sobald ein nicht
+erlaubter Systemcall ausgeführt wird, das Programms beendet wird.
+
+\subsection{Verwendung}
+Durch das Blockieren von Systemcalls in einem Container mit Seccomp-BPF 
+werden mögliche Auswirkungen von kompromittierten Prozessen verringert und 
+die Angriffsoberfläche auf den Kernel reduziert. Standardmä{\ss}ig werden bei
+Docker zirka 44 Systemcalls deaktiviert \cite{docker_seccomp}. Ebenso der
+Browser Chromium verwendet Seccomp-BPF, um zu verhindern, dass bösartiger Code
+ausgeführt werden kann \cite{chrome_linux_sandboxing}.
+
+\chapter{Linux Security Modules}
+Das folgende Kapitel beschäftigt sich mit den Linux Security Modules (LSM),
+welche zur Isolation von Containern verwendet werden können.
+\section{Einleitung}
+
+\subsection{DAC versus MAC}
+\label{lab:dacvsmac}
+
+Die standardmä{\ss}ige Zugriffskontrolle unter Linux ist
+DAC\footnote{Discretionary Access Control}, auch bekannt als
+Dateiberechtigungen \cite[269]{10.5555/2566728}. Hierbei entscheidet die*der
+Besitzer*in einer Ressource, welche Zugriffsrechte andere Benutzer*innen auf dieselbe
+Ressource haben.
+
+\begin{lstlisting}[label={console:etcshadow},caption={Dateiberechtigungen von \emph{/etc/shadow}}]
+# ls -l /etc/shadow
+-rw------- 1 root root 962 Dec  2 21:47 /etc/shadow
+\end{lstlisting}
+
+In Programm \ref{console:etcshadow} ist zu erkennen, dass der Besitzer der
+Datei
+\emph{/etc/shadow}\footnote{\url{https://man7.org/linux/man-pages/man5/shadow.5.html}
+(letzter Zugriff 28.02.2021)} \emph{root} ist und dieser Lese- und
+Schreibzugriff auf die Datei besitzt. Dadurch ist es jedem privilegierten
+Prozess\footnote{Prozesse welche von \emph{root} ausgeführt werden}
+möglich, auf sensitive Dateien wie zum Beispiel \emph{shadow} zuzugreifen.
+
+Bei MAC\footnote{Mandatory Access Control} im Gegensatz, passiert die
+Zugriffskontrolle mithilfe von Sicherheitsrichtlinien, welche
+ausschlie{\ss}lich von dem*der Administrator*in definiert werden und vom Betriebssystem
+erzwungen werden \cite[9]{10.5555/2566830}. User*innen und Prozesse haben keine
+Möglichkeit diese Sicherheitsrichtlinien zu umgehen. Um unter Linux
+unterschiedliche Sicherheitsmodule zu nutzen, wird das Linux Security Module
+Framework verwendet \cite{LinuxSecurityModuleFramework}.
+
+Wird MAC zusätzlich zu DAC eingesetzt, ist es gegebenenfalls möglich, den
+Schaden, welche kompromittierte Prozesse auf dem System anrichten können, zu
+minimieren. Somit ist es zum Beispiel mit MAC möglich, Prozessen mit
+Superuser-Rechte den Zugriff auf \emph{/etc/shadow} zu verbieten.
+
+\subsection{LSM Framework}
+\label{lab:lsm_framework}
+Das LSM Framework ist seit dem Linux-Kernel 2.6 verfügbar. Es bietet die
+nötigen Mechanismen im Linux-Kernel an, um Sicherheitschecks
+durchzuführen. Der Kernel verfügt über LSM Hooks, welche an unterschiedlichsten
+Stellen vorhanden sind. Bei Zugriffe auf Ressourcen des Kernels werden LSM
+Hooks aktiv. Diese befragen das Linux Security Module, ob die jeweilige Aktion
+erlaubt ist, welches mit \emph{Ja} oder \emph{Nein} antwortet
+\cite{LinuxSecurityModuleFramework}.  Hauptsächlich wird das LSM Framework von
+MAC Erweiterungen, wie
+SELinux\footnote{\url{https://selinuxproject.org/page/Main_Page} (letzter
+Zugriff 20.04.2021)}, AppArmor\footnote{\url{https://apparmor.net/} (letzter
+Zugriff 20.04.2021)}, Tomoyo\footnote{\url{https://tomoyo.osdn.jp/} (Letzter
+Zugriff 20.04.2021)} oder Smack\footnote{\url{http://schaufler-ca.com/}
+(letzter Zugriff 20.04.2021)}, verwendet \cite{kernel_lsm2}. Das standardmäßig
+aktive LSM ist das Linux
+Capabilities\footnote{\url{https://man7.org/linux/man-pages/man7/capabilities.7.html}
+(letzter Zugriff 20.04.2021)} System. Welche Linux Security Modules ein Linux-System
+verwendet, wird mit Kernel Boot-Parameter angegeben. Zur Isolation von
+Containern werden Capabilities, AppArmor und SELinux verwendet, welche folgend
+genauer betrachtet werden.
+
+\section{Capabilities}
+\label{lab:capabilities}
+
+\subsection{Erklärung}
+Klassisch unterscheidet Linux zwischen unprivilegierten\footnote{regulärer
+User} und privilegierten\footnote{Superuser} Usern. Die Rechte eines
+unprivilegierten Users sind sehr limitiert. Dies hat zur Folge, dass Programme,
+welche mehr Rechte benötigen als ein unprivilegierter User (zum Beispiel
+\emph{passwd}\footnote{\url{https://man7.org/linux/man-pages/man1/passwd.1.html}
+(letzter Zugriff 20.04.2021)}, NMAP), im Superuser-Kontext ausgeführt werden
+müssen. Das Problem dabei ist, dass Programme, welche nur einen Teil der
+Superuser-Rechte benötigen, trotzdem mit vollen Superuser-Rechten ausgeführt
+werden müssen \cite{LinuxCapabilitesmakingthemwork}. Somit haben diese mehr
+Rechte als sie benötigen würden und können dadurch, wenn diese kompromittiert
+werden, mehr Schaden am System anrichten.
+
+Capabilities ermöglichen, die Rechte des Superusers in kleinere Einheiten zu
+unterteilen \cite{LinuxCapabilitesmakingthemwork}. Privilegierte Kernel Calls
+sind in Gruppen, welche ähnliche Funktionalitäten besitzen, aufgeteilt
+\cite{man_capabilities}. Somit kann ein Prozess, wenn dieser die nötigen
+Capabilities besitzt, bestimmte privilegierte Operationen ausführen, ohne dabei
+alle Superuser-Rechte zu benötigen.
+
+Capabilities können auf ausführbare Dateien sowie auf Prozesse gesetzt werden.
+Folgend in Auszug \ref{console:capabilities_beispiele} befinden sich drei
+Beispiele für Capabilities – inklusive Beschreibung entnommen aus der Manpage.
+
+\clearpage
+
+\renewcommand{\lstlistingname}{Auszug}
+\begin{lstlisting}[numbers=none,label={console:capabilities_beispiele},caption={Capabilities Manpage\cite{man_capabilities}}]
+CAP_CHOWN
+       Make arbitrary changes to file UIDs and GIDs (see chown(2)).
+
+CAP_KILL
+       Bypass permission checks for sending signals (see kill(2)).  This includes use  of  the ioctl(2) KDSIGACCEPT operation.
+
+CAP_NET_RAW
+       * Use RAW and PACKET sockets;
+       * bind to any address for transparent proxying.
+\end{lstlisting}
+
+\renewcommand{\lstlistingname}{Programm}
+
+\subsection{Implementierung}
+Folgendes Beispiel (siehe Programm \ref{console:capabilities_example})
+demonstriert, wie Capabilities ermöglichen, dass das Tool
+NMAP\footnote{\url{https://nmap.org/} (letzter Zugriff 05.02.2021)} 
+nicht mehr die Rechte eines Superusers benötigt.  NMAP
+ist ein Netzwerk-Analysewerkzeug und Sicherheits-/Portscanner. Wenn dieses mit
+dem Argument \emph{-{}-privileged} (Zeile 3) ausgeführt wird, nimmt das
+Programm an, dass der*die ausführende User*in volle Privilegien besitzt.
+Dies hat zur Folge, dass NMAP Raw
+Sockets\footnote{\url{https://man7.org/linux/man-pages/man7/raw.7.html}
+(letzter Zugriff 05.02.2021)} verwendet, welche wiederum die Capability
+\emph{CAP\_NET\_RAW} benötigen. Damit NMAP so ausgeführt werden kann, muss es
+entweder mit Superuser-Rechte gestartet werden oder von einem*einer unprivilegiertem*n User*in,
+wobei dann die Capability \emph{CAP\_NET\_RAW} (siehe Auszug
+\ref{console:capabilities_beispiele}) benötigt wird.
+
+\begin{lstlisting}[label={console:capabilities_example},caption={Beispiel für Capabilities}]
+# id -u
+1000
+# nmap --privileged -sn 8.8.8.8
+Starting Nmap 7.91 ( https://nmap.org ) at 2021-02-04 13:23 CET
+dnet: Failed to open device wlp0s20f3
+QUITTING!
+# strace -e socket nmap --privileged -sn 8.8.8.8
+...
+socket(AF_INET, SOCK_RAW, IPPROTO_RAW)  = -1 EPERM (Operation not permitted)
+Couldn't open a raw socket. Error: Operation not permitted (1)
+# getcap /usr/bin/nmap
+<no output>
+# sudo setcap cap_net_raw+ep /usr/bin/nmap 
+# getcap /usr/bin/namp
+/usr/bin/nmap cap_net_raw=ep
+# nmap --privileged -sn 8.8.8.8
+Starting Nmap 7.91 ( https://nmap.org ) at 2021-02-04 13:27 CET
+Nmap scan report for google.com (216.58.207.174)
+Host is up (0.020s latency).
+Other addresses for google.com (not scanned): 2a00:1450:4016:800::200e
+rDNS record for 216.58.207.174: muc11s04-in-f14.1e100.net
+Nmap done: 1 IP address (1 host up) scanned in 0.22 seconds
+\end{lstlisting}
+
+In Programm \ref{console:capabilities_example} wird gezeigt, dass es nicht
+möglich ist, NMAP mit Argument \linebreak \mbox{\emph{-{}-privileged}} und
+unprivilegierten Rechten (Zeile 1-2) auszuführen (Zeile 3-6). Der Grund
+ist, dass NMAP Raw Sockets verwendet (Zeile 7-10). Der Befehl
+\emph{getcap}\footnote{\url{https://man7.org/linux/man-pages/man8/getcap.8.html}
+(letzter Zugriff 20.04.2021)} zeigt die Datei-Capabilities an (Zeile 11). Es
+sind keine Capabilities vorhanden (Zeile 12). Mittels  des Befehls
+\emph{setcap}\footnote{\url{https://man7.org/linux/man-pages/man8/setcap.8.html}
+(letzter Zugriff 20.04.2021)} werden die Datei-Capabilities gesetzt (Zeile 13).
+Der Ausdruck \emph{+ep} (Zeile 13) bewirkt, dass die angegebene Capability als
+Effective\footnote{aktive Capabilities} und Permitted\footnote{erlaubte
+Capabilities} hinzugefügt wird. Das Setzen der Capability war erfolgreich
+(Zeile 14-15). Durch die neu erlangte Capability ist es möglich NMAP, ohne
+volle Superuser-Rechte auszuführen (Zeile 16-22).
+
+\subsection{Verwendung}
+Docker führt standardmä{\ss}ig alle Container mit reduzierten Capabilities aus
+\cite{docker_engine_security_capabilities}. Auch wenn ein Angreifer \emph{root}
+Rechte innerhalb eines Containers besitzt, ist es aufgrund der fehlenden
+Capabilities schwerer, wirklichen Schaden am System anzurichten. Welche
+Capabilities innerhalb von Docker-Containern erlaubt sind, wird mit einer
+Zulassungsliste festgelegt. 
+
+Obwohl Capabilities heutzutage noch eine wichtige Rolle in Containern spielen,
+wird dies durch das Verwenden von unprivilegierten Containern mit User
+Namespaces weniger relevant. Der Grund dafür ist, dass ein User Namespace mit
+der UID 0, alle Capabilities eines echten \emph{root} Users besitzt. Welche
+sich jedoch nur auf den jeweiligen User Namespace beziehen und nicht auf den
+initialen User Namespace (siehe Abschnitt \ref{lab:user_namespaces}).
+
+Des Weiteren können Capabilities zur Systemhärtung eingesetzt werden.
+Anwendungen, welche das SUID\footnote{Set User ID} Bit gesetzt haben, sind
+gegebenenfalls ein Sicherheitsrisiko. Das SUID Bit hat zur Folge, dass
+ausführbare Dateien mit den Rechten des Dateibesitzers und nicht mit den
+Rechten des Anwenders ausgeführt werden. Beispielsweise anstatt das SUID Bit
+von NMAP (wo der Dateibesitzer \emph{root} ist) zu setzen, sollte nur die
+jeweilige nötige Capability hinzugefügt werden (siehe Programm
+\ref{console:capabilities_example}).
+
+\clearpage
+
+\section{AppArmor}
+\label{lab:apparmor}
+
+\subsection{Erklärung}
+AppArmor\footnote{\url{https://apparmor.net/} (letzter Zugriff 24.02.2021)},
+ein MAC-Modell (siehe Abschnitt \ref{lab:dacvsmac}) basiertes LSM, ist seit Linux-Kernel
+2.6.36\footnote{\url{https://kernelnewbies.org/Linux\_2\_6\_36} (letzter
+Zugriff 28.02.2021)} verfügbar. Das LSM macht es dem Systemadministrator
+möglich, Profile zu definieren, um die Aktionen von Programmen einzuschränken.
+AppArmor soll hierdurch das Betriebssystem und Anwendungen von internen und
+externen Gefahren, als auch Zero-Day-Angriffe schützen \cite{apparmor_website}.
+
+\subsection{Implementierung}
+Folgendes Beispiel demonstriert die Anwendung und Funktionalität von AppArmor.
+
+\begin{lstlisting}[label={console:readShadowc},caption={\emph{readShadow.c}:
+Programm liest \emph{/etc/shadow} }]
+#include <stdio.h>
+
+int main() {
+  FILE *fp;
+  char ch;
+  fp = fopen("/etc/shadow", "r");
+  while((ch = fgetc(fp)) != EOF)
+    printf("%c", ch);
+  fclose(fp);
+}
+\end{lstlisting}
+
+Das Programm \emph{readShadow.c} (siehe Programm \ref{console:readShadowc})
+liest die Datei \emph{/etc/shadow} ein (Zeile 6) und gibt den Inhalt der Datei
+auf der Konsole aus (Zeile 7-8).
+
+\begin{lstlisting}[label={console:readShadowexecution},caption={Kompilieren und
+Ausführen von \emph{readShadow}}]
+# gcc readShadow.c -o /usr/bin/readShadow
+# id
+uid=0(root) gid=0(root) groups=0(root)
+# readShadow | head -2
+root:$6$8QfqhzpvtlQuNh2u$kDSD7uBDaba5tPpvuKiDvGM0LdYGa3sSX33r2jFOdeeRRAfm1C8y.aS8eo.ogN.NeH8kOGxbM5vBfCQi0myr8.:18683:0:99999:7:::
+daemon:*:18682:0:99999:7:::
+\end{lstlisting}
+
+In Programm \ref{console:readShadowexecution} ist zu erkennen, dass
+\emph{readShadow} die Datei \emph{/etc/shadow} ohne Probleme auslesen kann. Um
+dies zu verhindern, wird AppArmor verwendet. Wobei \emph{readShadow} vom
+\emph{root}-User ausgeführt wird. 
+
+\begin{lstlisting}[label={console:genapparmor}, caption={Generierung des AppArmor-Profils}]
+# aa-easyprof /usr/bin/readShadow > /etc/apparmor.d/usr.bin.readShadow
+\end{lstlisting}
+
+Mittels des Tools
+\emph{aa-easyprof}\footnote{\url{https://manpages.ubuntu.com/manpages/xenial/man8/aa-easyprof.8.html}
+(letzter Zugriff 15.04.2021)} ist es möglich AppArmor-Profile zu erstellen 
+(siehe Programm \ref{console:genapparmor})
+\cite{man_aaeasyprof}. 
+
+\clearpage
+\begin{lstlisting}[label={program:apparmorprofil}, caption={AppArmor-Profil\protect\footnotemark}]
+#include <tunables/global>
+
+"/usr/bin/readShadow" {
+  #include <abstractions/base>
+}
+\end{lstlisting}
+\footnotetext{Kommentare im Profil wurden entfernt}
+
+Das entstandene Profil (siehe Programm \ref{program:apparmorprofil}) basiert auf einer
+Vorlage\footnote{\url{https://gitlab.com/apparmor/apparmor/-/blob/master/utils/easyprof/templates/default}
+(letzter Zugriff 28.02.2021)}, welches jedoch den Zugriff auf
+\emph{/etc/shadow} nicht erlaubt. Zur Referenzierung des Programms verwendet
+AppArmor Dateipfade (Zeile 3). 
+
+\begin{lstlisting}[label={console:activateapparmor},caption={Aktivierung des AppArmor-Profils}]
+# apparmor_parser -r /etc/apparmor.d/usr.bin.readShadow
+# id
+uid=0(root) gid=0(root) groups=0(root)
+# readShadow
+Segmentation fault
+#  /usr/bin/aa-notify -s 1 -v
+Profile: /usr/bin/readShadow
+Operation: open
+Name: /etc/shadow
+Denied: r
+Logfile: /var/log/audit/audit.log
+
+AppArmor denial: 1 (since Wed Feb 24 06:21:10 2021)
+For more information, please see: https://wiki.ubuntu.com/DebuggingApparmor
+\end{lstlisting}
+
+Mit dem Befehl
+\emph{apparmor\_parser}]\footnote{\url{https://manpages.ubuntu.com/manpages/bionic/man8/apparmor_parser.8.html}
+(letzter Zugriff 15.05.2021)} wird in Programm
+\ref{console:activateapparmor} das AppArmor-Profil in den Kernel
+geladen (Zeile 1)\cite{man_apparmor_parser}. Wenn nun \emph{readShadow} wieder
+ausgeführt wird, kommt es zu einem Absturz des Programms (Zeile 4-5). Mit
+dem Befehl \emph{aa-notify} werden Informationen bezüglich
+AppArmor-Nachrichten angezeigt (Zeile 6-14)]\cite{man_aa_notify}. Zu erkennen
+ist, dass die \emph{open} Operation (Zeile 8) des Programms
+\emph{/usr/bin/readShadow} (Zeile 7) auf \emph{/etc/shadow} (Zeile 9),
+entsprechend dem AppArmor-Profil, verweigert wurde.
+
+\begin{lstlisting}[label={console:newapparmorprofile},caption={Neues AppArmor-Profil}]
+#include <tunables/global>
+
+"/usr/bin/readShadow" {
+  #include <abstractions/base>
+  /etc/shadow r,
+}
+\end{lstlisting}
+
+Um nun den Lesezugriff auf die Datei zu erlauben, muss dies im AppArmor-Profil
+angegeben werden. Dazu wird die Zeile 5 hinzugefügt, siehe Programm
+\ref{console:newapparmorprofile}.
+
+\clearpage
+
+\begin{lstlisting}[label={console:newapparmorprofileactivation},caption={Aktivierung des neuen AppArmor-Profils}]
+# apparmor_parser -r /etc/apparmor.d/usr.bin.readShadow
+# readShadow | head -2
+root:$6$8QfqhzpvtlQuNh2u$kDSD7uBDaba5tPpvuKiDvGM0LdYGa3sSX33r2jFOdeeRRAfm1C8y.aS8eo.ogN.NeH8kOGxbM5vBfCQi0myr8.:18683:0:99999:7:::
+daemon:*:18682:0:99999:7:::
+\end{lstlisting}
+
+In Programm \ref{console:newapparmorprofileactivation} wird das neue
+AppArmor-Profil (siehe Programm \ref{console:newapparmorprofile}) in den Kernel
+geladen (Zeile 1). Wie zu erkennen, lässt sich das Programm jetzt ausführen
+(Zeile 2-4).
+
+\subsection{Verwendung}
+Seit Ubuntu Version 7.10\footnote{\url{https://wiki.ubuntuusers.de/AppArmor/}
+(letzter Zugriff 20.02.2021)} wird AppArmor standardmä{\ss}ig installiert und
+mitgeliefert \cite{ubuntu_apparmor}. Eine Liste der vorhandenen
+AppArmor-Profile kann im Ubuntu
+Wiki\footnote{\url{https://wiki.ubuntu.com/SecurityTeam/KnowledgeBase/AppArmorProfiles}
+(letzter Zugriff 20.02.2021)} gefunden werden. Bei Docker-Containern ist es
+möglich AppArmor als zusätzlichen Schutzmechanismus zu verwenden
+\cite{docker_apparmor}.
+
+\section{SELinux}
+\label{lab:selinux}
+\subsection{Erklärung}
+SELinux\footnote{Security Enhanced Linux} wurde im März 2001 von der
+NSA\footnote{National Security Agency} vorgestellt und basiert auf dem
+MAC-Modell \cite[6]{selinuxmodule}. Infolge dieser Vorstellung zog der Linux
+Gründer Linus Torvalds\footnote{\url{https://github.com/torvalds/linux}
+(letzter Zugriff 11.05.2021)} in Betracht, ein generelles Framework für solch
+Sicherheitsimplementierungen zu entwickeln und somit entstand das LSM Framework
+(siehe Abschnitt \ref{lab:lsm_framework})
+\cite{kernel_lsm_linus_lsm_idee}.
+
+\subsection{Implementierung}
+SELinux beantwortet folgende Frage: "Darf <Subjekt> <Objekt> <Aktion>?"
+\cite[7]{selinuxredhat}. Subjekte sind jene die eine Aktion ausführen, wie zum
+Beispiel Prozesse oder User. Objekte sind Ressourcen, auf jenen die Aktion
+ausgeführt wird, wie zum Beispiel eine Datei. Eine Aktion ist beispielsweise
+das Lesen oder Schreiben. Hierzu folgendes Beispiel: "Darf das Programm
+\emph{readShadow} die Datei \emph{/etc/shadow} lesen?".
+
+Im Gegensatz zu AppArmor verwendet SELinux Labels und nicht Pfade. Jedem
+Subjekt und Objekt wird ein Label zugeordnet. Mittels diesen Labels wird in der
+SElinux Policy definiert, wie Subjekte und Objekte miteinander interagieren
+dürfen \cite{selinuxredhat}. Folgendes Beispiel demonstriert wie SELinux dem
+Programm \emph{readShadow} (siehe Programm \ref{console:readShadowc}) den
+Lesezugriff auf \emph{/etc/shadow} verbietet. 
+
+\clearpage
+
+\begin{lstlisting}[label={lab:selinuxstatus}, caption={SElinux Status}]
+#  cat /etc/centos-release
+CentOS Linux release 8.3.2011
+# sestatus
+SELinux status:                 enabled
+SELinuxfs mount:                /sys/fs/selinux
+SELinux root directory:         /etc/selinux
+Loaded policy name:             mls
+Current mode:                   permissive
+...
+\end{lstlisting}
+Für diese Demonstration (siehe Programm \ref{lab:selinuxstatus}) wird die Linux
+Distribution CentOS\footnote{\url{https://www.centos.org/} (letzter Zugriff
+15.05.2021)} verwendet, da diese
+\mbox{SELinux} standardmäßig aktiviert hat (Zeile 1-2). SELinux befindet sich
+im \emph{permissive} Modus (Zeile 8). Hierbei werden nicht erlaubte Zugriffe
+nur geloggt und nicht blockiert. Im Gegensatz dazu gibt es den \emph{enforcing}
+Modus, wobei nicht erlaubte Zugriffe geloggt und blockiert werden. Aktiv ist
+die Multi-Level Security Policy\footnote{\raggedright
+\url{https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/selinux_users_and_administrators_guide/mls}
+(letzter Zugriff 12.04.2021)}. Defaultmäßig werden durch SELinux alle Zugriffe
+blockiert, sofern keine Ausnahmeregeln vorhanden sind.
+
+\begin{lstlisting}[label={console:selinuxreadShadow},caption={\emph{readShadow} mit SELinux einschränken}]
+# id
+uid=0(root) gid=0(root) groups=0(root) context=user_u:user_r:user_t:s0
+# ls -laZ /usr/bin/readShadow
+-rwxr-xr-x. 1 root root system_u:object_r:readShadow_exec_t:s0 12912 Apr 11 08:46 /usr/bin/readShadow
+# getenforce
+Permissive
+# readShadow
+root:$1$EAinZ.tX$vCbVlkyAs7aPSCHsgSO5v/::0:99999:7:::
+...
+# setenforce Enforcing
+# readShadow
+Segmentation fault (core dumped)
+# ausearch -m AVC -ts recent | grep readShadow | tail -n 2
+type=AVC msg=audit(1618156353.633:2454): avc:  denied  { open } for  pid=9260 comm="readShadow" path="/etc/shadow" dev="sda3" ino=19095863 scontext=root:sysadm_r:sysadm_t:s0-s15:c0.c1023 tcontext=system_u:object_r:shadow_t:s0 tclass=file
+type=AVC msg=audit(1618156353.633:2454): avc:  denied  { read } for  pid=9260 comm="readShadow" name="shadow" dev="sda3" ino=19095863 scontext=root:sysadm_r:sysadm_t:s0-s15:c0.c1023 tcontext=system_u:object_r:shadow_t:s0 tclass=file
+\end{lstlisting} 
+
+Programm \ref{console:selinuxreadShadow} ist eine Root-Shell (Zeile 1-2). Der
+Befehl
+\emph{getenforce}\footnote{\url{https://man7.org/linux/man-pages/man8/getenforce.8.html}
+(letzter Zugriff 14.04.2021)} zeigt, dass sich SELinux im \emph{permissive}
+Modus (Zeile 5-6)  befindet. Das Programm \emph{readShadow} kann problemlos
+ausgeführt werden (Zeile 7-9). SELinux wird mit dem Befehl
+\emph{setenforce}\footnote{\url{https://man7.org/linux/man-pages/man8/setenforce.8.html}
+(letzter Zugriff 14.04.2021)} in den \emph{enforcing} Modus gebracht  (Zeile
+10). Nun wird \emph{readShadow} bei der Ausführung blockiert (Zeile 11-12).
+Mittels des Befehls
+\emph{ausearch}\footnote{\url{https://man7.org/linux/man-pages/man8/ausearch.8.html}}
+werden die entsprechenden Logs dafür angezeigt (Zeile 13-15).
+
+\subsection{Verwendung}
+SELinux ist unter anderem standardmäßig auf dem Mobile Betriebssystem
+Android\footnote{\url{https://source.android.com/security/selinux} (letzter
+Zugriff 06.04.2021)} und mehreren Linux Distributionen, wie RHEL\footnote{Red
+Hat Enterprise Linux}
+\footnote{\url{https://www.redhat.com/en/technologies/linux-platforms/enterprise-linux}
+(letzter Zugriff 06.04.2021)} oder Fedora\footnote{\url{https://getfedora.org/}
+(letzter Zugriff 20.04.2021)} aktiviert. Ebenso verwendet die Open Source
+Applikationscontainer-Plattform
+Openshift\footnote{\url{https://www.openshift.com/} (letzter Zugriff
+06.04.2021)} SELinux. Mit der strengen SELinux-Policy unter Openshift, welche
+Out-of-the-Box vorhanden ist, werden erfolgreich Container
+Escape\footnote{unerlaubtes Ausbrechen aus dem Container}
+Exploits
+abgewehrt \cite{openshiftcontainerexploit}.
+
+\section{Probleme}
+\label{lab:lsm_probleme}
+Das Problem der vorhandenen Linux Security Modules ist, dass diese nicht für
+Container entwickelt wurden. Der Zweck dieser ist es, auf einem gesamten System
+Sicherheitsrichtlinien zu erzwingen, welche von dem*der Systemadministrator*in definiert
+werden. Dadurch entstehen zwei Probleme bei der Verwendung zur Absicherung von
+Containern \cite{SecurityNamespace} \cite{Belair}.
+\begin{itemize}
+  \item Systemadministrator: Um Sicherheitsrichtlinien zu definieren ist ein*e
+    System\-administrator*in notwendig. Ein unprivilegierter Container kann nicht
+    selbstständig eigene Sicherheitsrichtlinien definieren. (SELinux, AppArmor)
+  \item Gesamtes System: Die Mechanismen beziehen sich auf das gesamte System.
+    Somit können keine Sicherheitsrichtlinien für eine limitierte Anzahl an
+    Prozessen, wie zum Beispiel für Container, definiert werden. (SELinux)
+\end{itemize}
+
+Dies bedeutet, Container müssen sich auf den*die Systemadministrator*in verlassen,
+dass dieser*diese globale Sicherheitsrichtlinien erstellt, welche für die
+Sicherheitsbedürfnisse des jeweiligen Containers ausreichend sind. Hierbei das
+Problem: Es ist für Container nicht möglich, selbstständig
+Sicherheitsrichtlinien zu definieren, welche nur auf den eigenen Container
+angewendet werden. Somit ist es das Ziel, dass ein Container selbstständig
+Linux Security Modules verwenden und Richtlinien definieren kann.
+
+Um dieses Problem zu lösen, sind mehrere Vorschläge vorhanden. Im folgenden
+Abschnitt werden Security Namespace,
+Landlock\footnote{\url{https://landlock.io/} (letzter Zugriff 20.04.2021)} und
+die Verbesserungen von AppArmor genauer betrachtet. 
+
+\section{AppArmor Namespace und benutzerdefinierte Richtlinien}
+Mit dem AppArmor-Policy Namespace ist es möglich, unterschiedliche Richtlinien
+für unterschiedliche Teile des Systems zu definieren. Damit kann ein Container
+Richtlinien anwenden, ohne das Hostsystem und andere Container zu beeinflussen
+\cite{apparmor_namespace}. Diese Funktion ist bereits vorhanden. Im
+Entwicklungsprozess befinden sich benutzerdefinierte Richtlinien. Diese sollen
+es möglich machen, dass Anwendungen und Benutzer*innen selbst Richtlinien definieren
+dürfen, ohne dass dafür ein*e Administrator*in notwendig ist \cite{apparmor_slides}
+\cite{apparmor_userdefined}.
+
+\section{Security Namespace}
+Wie in Abschnitt \ref{lab:namespaces} erklärt, ist es mit Namespaces möglich,
+unterschiedliche Systemressourcen zu abstrahieren. Mit dem von Yuqiong et al.
+\cite{SecurityNamespace} vorgeschlagenen Security Namespace soll es möglich
+sein, Linux Security Modules wie SELinux oder AppArmor zu abstrahieren. Damit
+wird erreicht, dass diese Frameworks auch nur auf eine begrenzte Anzahl an
+Prozessen, wie einem Container, angewendet werden können. Ebenfalls ist es dem*der
+Container Besitzer*in möglich, selbstständig Sicherheitsrichtlinien zu definieren.
+
+\section{Landlock}
+Das Ziel von Landlock ist es, einem*einer Entwickler*in die Möglichkeit zu geben, die
+Benutzer*innen ihrer Anwendung vor Attacken auf diese besser zu schützen
+\cite{lwn_landlock}. Durch den unprivilegierten Sandboxmechanismus soll es
+möglich sein, dass sich Anwendungen selbstständig isolieren und somit die
+Auswirkungen von Sicherheitsschwachstellen limitieren
+\cite{Landlock_commit_kernel}. Landlock befindet sich mittlerweile im
+Mainline\footnote{Git Repository von Linus Torvalds mit dem Linux Source-Code}
+Kernel und wird Teil des Linux-Kernels 5.13 sein
+\cite{Landlock_merge_mainline}.
+
+\section{Zusammenfassung}
+Die Verwendung von Linux Security Modules ist ein wichtiger Mechanismus für die
+Isolation von Containern \cite{10.1145/3274694.3274720}. Mit vorhandenen
+Mechanismen ist es allerdings nicht möglich, dass Container selbstständig Linux
+Security Modules anwenden. Jedoch sind mehrere Projekte zur Forschung und
+Entwicklung vorhanden, um dieses Problem zu lösen \cite{Landlock}
+\cite{SecurityNamespace} \cite{apparmor_slides}.
