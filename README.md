@@ -42,3 +42,8 @@ important mechanism to protect the host from containers. However, existing
 Linux Security Modules are not best suited for this use case. Current
 development and research is focused on improving usability of Linux Security
 Modules with containers.
+
+## Build using the Makefile
+```
+make build
+```
